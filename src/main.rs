@@ -1,12 +1,11 @@
 // #![deny(warnings)]
 use clap::Parser;
-use git2::{Error, ErrorCode, Repository, StatusOptions};
-use log::error;
-
-#[macro_use]
-extern crate log;
-
+use colored::{Color, Colorize};
 use env_logger::Env;
+use git2::{Error, ErrorCode, Repository, StatusOptions};
+use log::debug;
+
+extern crate log;
 
 #[derive(Parser, Debug)]
 #[clap(version, long_about = None)]
@@ -14,6 +13,10 @@ struct Args {
   /// git directory to analyze
   #[clap(name = "dir", long = "git-dir")]
   flag_git_dir: Option<String>,
+
+  /// enable color
+  #[clap(long = "color")]
+  color: bool,
 }
 
 fn is_ahead_behind_remote(repo: &Repository) -> Result<(usize, usize), Error> {
@@ -22,10 +25,12 @@ fn is_ahead_behind_remote(repo: &Repository) -> Result<(usize, usize), Error> {
   Ok(repo.graph_ahead_behind(head, upstream)?)
 }
 
-fn stringify_status(status: (i32, i32, i32), prefix: &str) -> String {
+fn stringify_status(status: (i32, i32, i32), prefix: &str, color: Color) -> String {
   let (new, modified, deleted) = status;
   if new > 0 || modified > 0 || deleted > 0 {
-    format!("{}+{} ~{} -{}", prefix, new, modified, deleted)
+    format!("{}+{} ~{} -{}", prefix.yellow(), new, modified, deleted)
+      .color(color)
+      .to_string()
   } else {
     "".to_string()
   }
@@ -113,28 +118,30 @@ fn run(args: &Args) -> Result<(), Error> {
   };
 
   let vec_of_status = vec![
-    branch_name,
+    branch_name.blue().to_string(),
     if ahead > 0 {
-      format!("↑{}", ahead)
+      format!("↑{}", ahead).green().to_string()
     } else {
       "".to_string()
     },
     if behind > 0 {
-      format!("↓{}", behind)
+      format!("↓{}", behind).red().to_string()
     } else {
       "".to_string()
     },
-    stringify_status(index_status, ""),
-    stringify_status(wt_status, "| "),
+    stringify_status(index_status, "", Color::Green),
+    stringify_status(wt_status, "| ", Color::Red),
   ];
 
   println!(
-    "[{}]",
+    "{}{}{}",
+    "[".yellow().to_string(),
     vec_of_status
       .into_iter()
       .filter(|elem| !elem.is_empty())
       .collect::<Vec<_>>()
-      .join(" ")
+      .join(" "),
+    "]".yellow().to_string(),
   );
 
   return Ok(());
@@ -148,6 +155,7 @@ fn main() {
   env_logger::init_from_env(env);
 
   let args = Args::parse();
+  colored::control::set_override(args.color);
 
   match run(&args) {
     Ok(()) => {}

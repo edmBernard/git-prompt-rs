@@ -1,6 +1,12 @@
 // #![deny(warnings)]
 use clap::Parser;
 use git2::{Error, ErrorCode, Repository, StatusOptions};
+use log::error;
+
+#[macro_use]
+extern crate log;
+
+use env_logger::Env;
 
 #[derive(Parser, Debug)]
 #[clap(version, long_about = None)]
@@ -10,13 +16,11 @@ struct Args {
   flag_git_dir: Option<String>,
 }
 
-
 fn is_ahead_behind_remote(repo: &Repository) -> Result<(usize, usize), Error> {
   let head = repo.revparse_single("HEAD")?.id();
   let upstream = repo.revparse_ext("@{u}")?.0.id();
   Ok(repo.graph_ahead_behind(head, upstream)?)
 }
-
 
 fn stringify_status(status: (i32, i32, i32), prefix: &str) -> String {
   let (new, modified, deleted) = status;
@@ -26,7 +30,6 @@ fn stringify_status(status: (i32, i32, i32), prefix: &str) -> String {
     "".to_string()
   }
 }
-
 
 fn get_branch_name(repo: &Repository) -> Result<String, Error> {
   let head = match repo.head() {
@@ -38,7 +41,6 @@ fn get_branch_name(repo: &Repository) -> Result<String, Error> {
 
   Ok(head.unwrap_or("no branch").to_string())
 }
-
 
 fn get_short_status(statuses: &git2::Statuses) -> ((i32, i32, i32), (i32, i32, i32)) {
   let mut index_newfile_count: i32 = 0;
@@ -85,7 +87,6 @@ fn get_short_status(statuses: &git2::Statuses) -> ((i32, i32, i32), (i32, i32, i
     (wt_newfile_count, wt_modified_count, wt_deleted_count),
   )
 }
-
 
 fn run(args: &Args) -> Result<(), Error> {
   let path = args.flag_git_dir.clone().unwrap_or(".".to_string());
@@ -139,12 +140,20 @@ fn run(args: &Args) -> Result<(), Error> {
   return Ok(());
 }
 
-
 fn main() {
+  let env = Env::default()
+    .filter_or("RUST_LOG_LEVEL", "info")
+    .write_style_or("RUST_LOG_STYLE", "auto");
+
+  env_logger::init_from_env(env);
+
   let args = Args::parse();
 
   match run(&args) {
     Ok(()) => {}
-    Err(e) => println!("Error: {}", e),
+    Err(e) => {
+      debug!("{}", e);
+      return ();
+    }
   }
 }

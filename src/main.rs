@@ -5,8 +5,8 @@ use git2::{Error, ErrorCode, Repository, StatusOptions};
 #[derive(Parser, Debug)]
 #[clap(version, long_about = None)]
 struct Args {
-  #[clap(name = "dir", long = "git-dir")]
   /// git directory to analyze
+  #[clap(name = "dir", long = "git-dir")]
   flag_git_dir: Option<String>,
 }
 

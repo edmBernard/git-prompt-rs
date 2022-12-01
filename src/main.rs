@@ -17,6 +17,10 @@ struct Args {
   /// enable color
   #[clap(long = "color")]
   color: bool,
+
+  /// enable zsh encoded color
+  #[clap(long = "zsh")]
+  zsh: bool,
 }
 
 fn is_ahead_behind_remote(repo: &Repository) -> Result<(usize, usize), Error> {
@@ -25,12 +29,24 @@ fn is_ahead_behind_remote(repo: &Repository) -> Result<(usize, usize), Error> {
   Ok(repo.graph_ahead_behind(head, upstream)?)
 }
 
-fn stringify_status(status: (i32, i32, i32), prefix: &str, color: Color) -> String {
+fn format_color(string : &str, color: Color, zsh: bool) -> String {
+  if zsh {
+    format!("%F{{{color}}}{}%f", string, color=match color {
+      Color::Blue => "blue",
+      Color::Green => "green",
+      Color::Red => "red",
+      Color::Yellow => "yellow",
+      _ => "not implemented yet"
+    })
+  } else {
+    String::from(string).color(color).to_string()
+  }
+}
+
+fn stringify_status(status: (i32, i32, i32), prefix: &str, color: Color, zsh: bool) -> String {
   let (new, modified, deleted) = status;
   if new > 0 || modified > 0 || deleted > 0 {
-    format!("{}+{} ~{} -{}", prefix.yellow(), new, modified, deleted)
-      .color(color)
-      .to_string()
+    format_color(prefix, Color::Yellow, zsh) + &format_color(&format!("+{} ~{} -{}", new, modified, deleted), color, zsh)
   } else {
     "".to_string()
   }
@@ -118,30 +134,30 @@ fn run(args: &Args) -> Result<(), Error> {
   };
 
   let vec_of_status = vec![
-    branch_name.blue().to_string(),
+    format_color(&branch_name, Color::Blue, args.zsh),
     if ahead > 0 {
-      format!("↑{}", ahead).green().to_string()
+      format_color(&format!("↑{}", ahead), Color::Green, args.zsh)
     } else {
       "".to_string()
     },
     if behind > 0 {
-      format!("↓{}", behind).red().to_string()
+      format_color(&format!("↓{}", behind), Color::Red, args.zsh)
     } else {
       "".to_string()
     },
-    stringify_status(index_status, "", Color::Green),
-    stringify_status(wt_status, "| ", Color::Red),
+    stringify_status(index_status, "", Color::Green, args.zsh),
+    stringify_status(wt_status, "| ", Color::Red, args.zsh),
   ];
 
   println!(
     "{}{}{}",
-    "[".yellow().to_string(),
+    format_color("[", Color::Yellow, args.zsh),
     vec_of_status
-      .into_iter()
-      .filter(|elem| !elem.is_empty())
-      .collect::<Vec<_>>()
-      .join(" "),
-    "]".yellow().to_string(),
+    .into_iter()
+    .filter(|elem| !elem.is_empty())
+    .collect::<Vec<_>>()
+    .join(" "),
+    format_color("]", Color::Yellow, args.zsh),
   );
 
   return Ok(());
